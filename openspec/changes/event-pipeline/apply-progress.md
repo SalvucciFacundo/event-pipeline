@@ -64,5 +64,36 @@ Implemented directly by the orchestrator (same direct-application path as WU1).
 - `feat(stream): add StreamClient interface, redis implementation, and deterministic fake`
 - `feat(worker): add cancellable worker and resize supervisor`
 
+## Work Unit 3 — Aggregation/SSE barrier (COMPLETED)
+
+Implemented directly by the orchestrator (same direct-application path).
+
+### Tasks completed
+- [x] 2.4 RED: aggregation window/coalescing tests with injected clock → GREEN: `internal/aggregation/aggregator.go` — single-owner goroutine, per-second/per-minute counters by type + totals, 5-min retention cleanup (second/minute granularity), bounded snapshot publish with coalescing, final flush on cancel.
+- [x] 3.1 RED: replay, fresh client, full queue, barrier tests with goleak → GREEN: `internal/sse/hub.go` — client registry, bounded per-client queue, two-phase replay barrier (register → exclusive XRANGE → enqueue → gate-open), slow-client disconnect, concurrent-safe send/close.
+
+### Files created
+- `internal/aggregation/aggregator.go`, `internal/aggregation/aggregator_test.go`
+- `internal/sse/hub.go`, `internal/sse/hub_test.go`
+
+### Verification (focused)
+- `go vet ./...` — PASS
+- `go test ./internal/...` — PASS (all 5 packages)
+- `go test -race -cover ./...` — PASS; coverage: aggregation 89.4%, sse 81.8%.
+
+### Runtime harness
+- N/A (aggregator and hub exercised through fakes; SSE HTTP wiring arrives in WU4).
+
+### Rollback boundary
+- Remove `internal/aggregation/` and `internal/sse/` — nothing else depends on them yet.
+
+### Bugs caught by tests
+- Cleanup deleted ALL minute windows (compared minute keys against a second-based cutoff) — fixed with per-granularity cutoffs.
+- Tests raced cancel-before-consume — restructured with snapshot-predicate waits.
+
+### Commits
+- `feat(aggregation): add single-owner windowed counters with bounded snapshots`
+- `feat(sse): add hub with two-phase replay barrier and slow-client disconnect`
+
 ## Next work unit
-- WU3 — Aggregation/SSE barrier: `internal/aggregation` (single-owner windowed counters) + `internal/sse` (hub with replay activation barrier), race tests + goleak.
+- WU4 — API/wiring/observability: `internal/httpapi` (POST /events, SSE endpoint, worker config GET/PUT, health, metrics routing) + `cmd/event-pipeline/main.go` composition root with graceful shutdown. Runtime harness: `go run ./cmd/event-pipeline` + curl.
