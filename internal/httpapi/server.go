@@ -47,6 +47,9 @@ type Options struct {
 	SSE        *sse.Hub
 	Metrics    *metrics.Metrics
 	Logger     *slog.Logger
+	// StaticFS serves the embedded React SPA for non-API routes. When nil,
+	// only the API routes are registered.
+	StaticFS http.FileSystem
 	// EventTime returns the RFC3339 UTC timestamp stamped on ingestion;
 	// tests override it for determinism. Defaults to time.Now.
 	EventTime func() string
@@ -61,6 +64,7 @@ type Server struct {
 	metrics    *metrics.Metrics
 	logger     *slog.Logger
 	eventTime  func() string
+	staticFS   http.FileSystem
 
 	handler http.Handler
 	wg      sync.WaitGroup
@@ -85,6 +89,7 @@ func New(opts Options) *Server {
 		metrics:    opts.Metrics,
 		logger:     logger,
 		eventTime:  eventTime,
+		staticFS:   opts.StaticFS,
 	}
 	s.handler = s.routes()
 	return s
@@ -113,7 +118,31 @@ func (s *Server) routes() http.Handler {
 	if s.metrics != nil {
 		mux.Handle("GET /metrics", s.metrics.Handler())
 	}
+
+	if s.staticFS != nil {
+		// Serve the embedded SPA. Non-API paths fall through to the SPA
+		// index.html so client-side routing works, while API routes stay
+		// exact.
+		mux.HandleFunc("/", s.handleStatic)
+	}
 	return mux
+}
+
+func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		if _, err := s.staticFS.Open(r.URL.Path); err == nil {
+			http.FileServer(s.staticFS).ServeHTTP(w, r)
+			return
+		}
+	}
+	// SPA fallback: always serve index.html for unknown paths.
+	index, err := s.staticFS.Open("index.html")
+	if err != nil {
+		http.Error(w, "frontend not built", http.StatusInternalServerError)
+		return
+	}
+	defer index.Close()
+	http.ServeContent(w, r, "index.html", time.Time{}, index)
 }
 
 func (s *Server) handlePostEvent(w http.ResponseWriter, r *http.Request) {

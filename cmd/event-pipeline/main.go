@@ -22,6 +22,7 @@ import (
 	"event-pipeline/internal/metrics"
 	"event-pipeline/internal/sse"
 	"event-pipeline/internal/stream"
+	"event-pipeline/internal/web"
 	"event-pipeline/internal/worker"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -102,6 +103,10 @@ func run(logger *slog.Logger) error {
 		SSE:        hub,
 		Metrics:    metrics,
 		Logger:     logger,
+		// Serve the embedded React dashboard. http.FS wraps the embed.FS
+		// (which is rooted at internal/web/dist) so index.html resolves at
+		// the root of the served tree.
+		StaticFS: http.FS(web.FS()),
 	})
 	go api.Run(ctx)
 
