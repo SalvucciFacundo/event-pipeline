@@ -128,5 +128,37 @@ Implemented directly by the orchestrator (same direct-application path).
 - `feat(httpapi): add event ingestion, SSE, worker config, health, and metrics routes`
 - `feat(cmd): add event-pipeline composition root with graceful shutdown`
 
+## Work Unit 5 — Frontend/embed/deployment (COMPLETED)
+
+Implemented directly by the orchestrator (same direct-application path).
+
+### Tasks completed
+- [x] 4.1 RED: UI fixtures → GREEN: `web/` Vite+TS+Tailwind SPA (Industrial terminal anchor — user choice): `useEventStream` hook (EventSource + Last-Event-ID native reconnect + dedup by id), `useWorkerConfig` (live desired/active), `EmitButton` (real POST /events), `EventStream` (live list, real data), `CountersPanel` (per-sec/min bars + totals), `WorkerSelector` (1/2/4/8). Build output → `internal/web/dist`.
+- [x] 4.2 embed/build + Dockerfile + README: `internal/web/embed.go` (`//go:embed dist`), multi-stage `Dockerfile` (node build → go build → scratch), `README.md` with ASCII architecture diagram + demo script. SPA fallback static serving added to httpapi (`StaticFS` option, index.html fallback for non-API routes).
+- [x] 5.1 integration tests: `internal/stream/integration_test.go` (`//go:build integration` + REDIS_URL): XADD → XREADGROUP → XACK, XRANGE replay (exclusive cursor + from-beginning), pending recovery via XAUTOCLAIM, Ping. Compiles with `-tags=integration` (not run locally — no Redis).
+
+### Files created
+- `web/` (package.json, tsconfig.json, vite.config.ts, tailwind.config.js, postcss.config.js, index.html, src/{main.tsx,App.tsx,index.css,types.ts}, hooks/useEventStream.ts, components/{EmitButton,EventStream,CountersPanel,WorkerSelector}.tsx)
+- `web/package-lock.json`, `web/node_modules/` (gitignored), `internal/web/dist/` (gitignored, built by npm)
+- `internal/web/embed.go`
+- `Dockerfile`
+- `README.md`
+- `internal/stream/integration_test.go`, `internal/httpapi/integration_doc.go`
+
+### Verification (focused)
+- `npm run build` — PASS (dist → internal/web/dist, 48.76 kB gzip JS)
+- `go build ./...` — PASS (embed + static serving)
+- `go vet ./...`, `go test ./internal/...` — PASS
+- `go vet -tags=integration ./...` — PASS (integration code compiles)
+- Runtime harness: Docker build requires `docker` (not installed locally) — deferred to Dokploy deploy (WU6/next session).
+
+### Rollback boundary
+- Remove `web/`, `internal/web/`, `Dockerfile`, `README.md`, `internal/stream/integration_test.go` — API + pipeline core remain intact.
+
+### Commits
+- `feat(web): add react dashboard with live events, counters, and worker selector`
+- `feat(web): add go embed, dockerfile, and architecture readme`
+- `test(stream): add redis integration tests behind build tag`
+
 ## Next work unit
-- WU5 — Frontend/embed/deployment: React SPA (Vite+TS+Tailwind, useEventStream hook with Last-Event-ID + dedup, dashboard components), internal/web embed, multi-stage Dockerfile, README with ASCII diagram. Plus integration tests (task 5.1, `//go:build integration` + REDIS_URL).
+- WU6 — Verification + git baseline: full `go test -race -cover ./...` (≥80% repo-wide, aided by integration tests), `go build`, frontend build, Docker smoke test, then the final git baseline. Also update /home/kuno/portafolio-go-guia.md P2 section (Pub/Sub → Redis Streams) and create the chained PRs (feature-branch-chain: tracker + child PRs).
