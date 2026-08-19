@@ -36,5 +36,33 @@ per explicit maintainer decision: "intenta de nuevo sino aplica los cambios tu".
 - Baseline: `chore: bootstrap SDD artifacts and spec baseline`
 - WU1: `feat: add config validation and prometheus metrics foundations`
 
+## Work Unit 2 — Redis/worker concurrency (COMPLETED)
+
+Implemented directly by the orchestrator (same direct-application path as WU1).
+
+### Tasks completed
+- [x] 2.1 RED: fake tests → GREEN: `internal/stream/client.go` (StreamClient interface + Message + StreamKey/GroupName constants), `fake.go` (deterministic in-memory fake: XADD/XREADGROUP/XACK/XRANGE/XAUTOCLAIM/EnsureGroup, blocking reads via notify channel), `redis.go` (go-redis v9 implementation).
+- [x] 2.2 RED: worker/recovery tests with goleak → GREEN: `internal/worker/worker.go` — claim-before-read (XAUTOCLAIM), immutable dispatch to out channel, success-only XACK, context exit.
+- [x] 2.3 RED: resize/race tests → GREEN: `internal/worker/supervisor.go` — atomic target/active, control channel + reconcile loop, start up / newest-first stop with wait, readiness gauge, shutdown cancels all + waits.
+
+### Files created
+- `internal/stream/client.go`, `internal/stream/fake.go`, `internal/stream/redis.go`, `internal/stream/stream_test.go`
+- `internal/worker/worker.go`, `internal/worker/supervisor.go`, `internal/worker/worker_test.go`, `internal/worker/supervisor_test.go`
+
+### Verification (focused)
+- `go vet ./...` — PASS
+- `go test ./internal/...` — PASS (config, metrics, stream, worker)
+- `go test -race -cover ./...` — PASS; coverage: config 96.4%, metrics 100.0%, stream 50.3% (Redis-backed code uncovered without integration tests), worker 73.1%. NOTE: repo-wide 80% target depends on tagged integration tests with REDIS_URL (task 5.1).
+
+### Runtime harness
+- N/A for this unit (worker pool exercised through the fake; real Redis path covered by integration tests in WU5).
+
+### Rollback boundary
+- Remove `internal/stream/` and `internal/worker/` — nothing else depends on them yet.
+
+### Commits
+- `feat(stream): add StreamClient interface, redis implementation, and deterministic fake`
+- `feat(worker): add cancellable worker and resize supervisor`
+
 ## Next work unit
-- WU2 — Redis/worker concurrency: `internal/stream` (StreamClient interface + fake), `internal/worker` (worker + supervisor resize), race tests + goleak.
+- WU3 — Aggregation/SSE barrier: `internal/aggregation` (single-owner windowed counters) + `internal/sse` (hub with replay activation barrier), race tests + goleak.
