@@ -1,0 +1,47 @@
+# Proyecto 2 — Event pipeline en tiempo real (el diferenciador)
+
+**Qué demuestra:** goroutines, channels, backpressure, streaming. Esto es lo que casi NINGÚN junior
+puede hablar en una entrevista. Es tu carta fuerte.
+
+**Stack:** Go + Redis Pub/Sub + Server-Sent Events (SSE) + React (front delgado). Front separado
+o servido por el mismo binario Go (archivos estáticos), para mantener deploy simple.
+
+**Flujo:**
+```
+productor (HTTP POST /events) → Redis Pub/Sub → N workers (goroutines) → agregación → SSE → dashboard React
+```
+
+**Componentes:**
+1. **Ingesta** — `POST /events` con payload JSON, validación, publica en Redis Pub/Sub
+2. **Workers concurrentes** — `N` goroutines consumiendo del canal, con límite de concurrencia y
+   backpressure (el productor no puede saturar a los workers)
+3. **Agregación** — ventanas (por segundo/minuto) con contadores: eventos por tipo, totales
+4. **SSE** — endpoint que transmite en vivo al front (`text/event-stream`), con reconnect y
+   `Last-Event-ID` (no perder eventos si el cliente se desconecta)
+5. **Dashboard React** — lista en vivo de eventos + contadores agregados, con `EventSource`
+   (SSE nativo) y reconnect automático. Botón para emitir eventos de prueba (genera datos reales,
+   no mocks). Charts de contadores por tipo y por worker.
+
+**Frontend React (integrado):** es EL front del portafolio. Pantalla principal con stream en vivo
+de eventos (scroll + pausa), contadores agregados por segundo/minuto, y selector de cantidad de
+workers que llama a un endpoint de configuración — así en la demo cambiás `EVENT_WORKERS` en vivo y
+se ve el cambio de throughput real en el dashboard.
+
+**Concurrencia que se ejercita:** worker pool con channels, fan-out a clientes SSE (hub con
+registro de suscriptores, mutex o channels por cliente), límites de backpressure, cancellación con context.
+
+**Deploy en Dokploy:**
+- Redis compartido (crear 1 vez en Dokploy)
+- Application del pipeline → Dockerfile → puerto contenedor `8080`
+- Env: `REDIS_URL` (host interno), `EVENT_WORKERS=4`
+
+**Criterio "listo para demo":**
+- Abrir 2 navegadores: lanzar eventos desde una pestaña, verlos en vivo en la otra vía SSE
+- Mostrar que con `EVENT_WORKERS=1` vs `4` cambia el throughput (log de métricas)
+- `/metrics` con contadores de eventos procesados por worker
+- README + diagrama (productor → Redis → workers → SSE → dashboard) + demo live
+
+**Mejoras opcionales:** persistencias de ventanas en Postgres, filtros por tipo de evento en el
+dashboard, reconnect real con backoff en el front.
+
+---

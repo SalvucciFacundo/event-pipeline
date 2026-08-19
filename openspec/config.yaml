@@ -1,0 +1,42 @@
+schema: spec-driven
+
+context: |
+  Stack: Go 1.26.5 + Redis Streams + SSE + React (Vite + TypeScript + Tailwind)
+  Architecture: Single binary serving Go HTTP API + embedded React static assets
+  Port: 8080, single container deploy (Dokploy)
+  Data flow: POST /events → Redis XADD → N workers XREADGROUP → aggregation → SSE → React dashboard
+  Logging: log/slog structured JSON
+  Metrics: /metrics endpoint (Prometheus)
+  Frontend: React SPA served via Go embed, EventSource for SSE
+  Testing: go test (no project code yet — greenfield)
+  Strict TDD: enabled (test runner available, default on)
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Document concurrency implications (goroutines, channels, backpressure)
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Cover concurrency contracts (worker pool size, backpressure, cancellation)
+  design:
+    - Include sequence diagrams for data flow (producer → Redis → workers → SSE → client)
+    - Document architecture decisions with rationale
+    - Specify channel ownership and goroutine lifecycle
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+      - Co-locate tests with source
+      - Use table-driven tests with named subtests
+      - Use goleak for goroutine leak detection
+    tdd: true
+    test_command: "go test ./..."
+  verify:
+    test_command: "go test -race -cover ./..."
+    build_command: "go build ./..."
+    coverage_threshold: 80
+  archive:
+    - Warn before merging destructive deltas
