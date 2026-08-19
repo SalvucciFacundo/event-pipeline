@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-text font-mono antialiased;
+}
+
+/* Industrial anchor: flat 1px borders, no shadows, no rounded corners. */
+button,
+input,
+select {
+  border-radius: 0;
+}
