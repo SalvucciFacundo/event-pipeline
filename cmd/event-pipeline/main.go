@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
@@ -96,6 +97,15 @@ func run(logger *slog.Logger) error {
 	}()
 
 	registry := httpapi.NewRegistry(supervisor)
+	// //go:embed dist nests the built assets under a dist/ subdir on the embed
+	// FS, so root it there — otherwise index.html never resolves and the app
+	// serves "frontend not built".
+	var staticRoot fs.FS = web.FS()
+	if sub, err := fs.Sub(staticRoot, "dist"); err == nil {
+		staticRoot = sub
+	} else {
+		logger.Error("frontend embed missing dist/", "error", err)
+	}
 	api := httpapi.New(httpapi.Options{
 		Redis:      redis,
 		Registry:   registry,
@@ -103,10 +113,7 @@ func run(logger *slog.Logger) error {
 		SSE:        hub,
 		Metrics:    metrics,
 		Logger:     logger,
-		// Serve the embedded React dashboard. http.FS wraps the embed.FS
-		// (which is rooted at internal/web/dist) so index.html resolves at
-		// the root of the served tree.
-		StaticFS: http.FS(web.FS()),
+		StaticFS:   http.FS(staticRoot),
 	})
 	go api.Run(ctx)
 
