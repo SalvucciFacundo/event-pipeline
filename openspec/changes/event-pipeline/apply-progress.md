@@ -160,5 +160,12 @@ Implemented directly by the orchestrator (same direct-application path).
 - `feat(web): add go embed, dockerfile, and architecture readme`
 - `test(stream): add redis integration tests behind build tag`
 
-## Next work unit
-- WU6 — Verification + git baseline: full `go test -race -cover ./...` (≥80% repo-wide, aided by integration tests), `go build`, frontend build, Docker smoke test, then the final git baseline. Also update /home/kuno/portafolio-go-guia.md P2 section (Pub/Sub → Redis Streams) and create the chained PRs (feature-branch-chain: tracker + child PRs).
+## Work Unit 6 — Verification + delivery (COMPLETED)
+
+- [x] 5.2 Verification: `go vet`, `go build`, `go test`, `go test -race -cover ./...` all exit 0; `npm run build` exit 0; `go vet -tags=integration` compiles. Full report in verify-report.md — verdict PASS WITH WARNINGS (Docker image + Redis E2E deferred to deploy).
+- [x] 5.3 Git baseline + delivery: repo created `https://github.com/SalvucciFacundo/event-pipeline` (public), tracker branch `feat/event-pipeline` pushed, base `main` created from baseline. PR #1 (draft, `type:feature`, `Closes #2` approved) — feature-branch-chain with size:exception (6,961 additions / 12 commits).
+- Guide updated: /home/kuno/portafolio-go-guia.md P2 section Pub/Sub → Redis Streams.
+
+## Next steps
+- Archive the change (openspec) once this WU is accepted.
+- On Dokploy deploy: run integration tests with REDIS_URL, Docker build smoke test, two-browser SSE demo.
