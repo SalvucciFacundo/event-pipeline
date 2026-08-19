@@ -167,6 +167,9 @@ func (f *Fake) Claim(_ context.Context, consumer string, _ time.Duration, count 
 // Close is a no-op for the fake.
 func (f *Fake) Close() error { return nil }
 
+// Ping reports health for the fake transport.
+func (f *Fake) Ping(context.Context) error { return nil }
+
 // IsAcked reports whether an ID has been acknowledged (test helper).
 func (f *Fake) IsAcked(id string) bool {
 	f.mu.Lock()

@@ -26,6 +26,9 @@ type SupervisorOptions struct {
 	// NamePrefix overrides the worker consumer-name prefix. Tests set it
 	// to a deterministic value; production defaults to the hostname.
 	NamePrefix string
+	// Notify is invoked after each processed message, before ack. It wires
+	// the pipeline to the SSE hub for live fan-out.
+	Notify func(stream.Message)
 }
 
 // Supervisor is the lifecycle owner of the worker pool. It tracks a
@@ -39,6 +42,7 @@ type Supervisor struct {
 	logger  *slog.Logger
 	metrics *metrics.Metrics
 	prefix  string
+	notify  func(stream.Message)
 
 	target atomic.Int32
 	active atomic.Int32
@@ -79,6 +83,7 @@ func NewSupervisor(client stream.StreamClient, out chan<- stream.Message, logger
 		logger:  logger,
 		metrics: m,
 		prefix:  prefix,
+		notify:  opts.Notify,
 		workers: map[string]*managedWorker{},
 		control: make(chan resizeReq),
 		done:    make(chan struct{}),
@@ -175,7 +180,7 @@ func (s *Supervisor) startWorker(ctx context.Context) {
 
 	go func() {
 		defer close(w.done)
-		Run(wctx, s.client, name, s.out, s.logger)
+		Run(wctx, s.client, name, s.out, s.logger, Options{Notify: s.notify})
 	}()
 
 	select {

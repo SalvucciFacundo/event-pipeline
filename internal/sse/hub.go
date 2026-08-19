@@ -166,6 +166,19 @@ func (h *Hub) ClientCount() int {
 	return len(h.clients)
 }
 
+// Close disconnects every client. Idempotent.
+func (h *Hub) Close() {
+	h.mu.Lock()
+	clients := make([]*Client, 0, len(h.clients))
+	for _, c := range h.clients {
+		clients = append(clients, c)
+	}
+	h.mu.Unlock()
+	for _, c := range clients {
+		c.close()
+	}
+}
+
 func randHex(n int) string {
 	buf := make([]byte, n)
 	if _, err := rand.Read(buf); err != nil {

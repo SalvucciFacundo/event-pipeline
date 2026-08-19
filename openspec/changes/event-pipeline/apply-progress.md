@@ -95,5 +95,38 @@ Implemented directly by the orchestrator (same direct-application path).
 - `feat(aggregation): add single-owner windowed counters with bounded snapshots`
 - `feat(sse): add hub with two-phase replay barrier and slow-client disconnect`
 
+## Work Unit 4 — API/wiring/observability (COMPLETED)
+
+Implemented directly by the orchestrator (same direct-application path).
+
+### Tasks completed
+- [x] 3.2 RED: httptest handler tests → GREEN: `internal/httpapi/server.go` — bounded `POST /events` (validation + MaxBytesReader, 202 + id), `GET /api/events/stream` (SSE), `PUT/GET /api/config/workers` (bounded, desired/active), `/healthz` (Redis ping 200/503), `/metrics` routing. `workerRegistry` adapter decouples handlers from the supervisor.
+- [x] 3.3 composition/shutdown: `cmd/event-pipeline/main.go` — signal.NotifyContext root, wiring (Redis → supervisor → aggInput → aggregator → snapshots → hub; workers Notify → hub), initial worker resize, http.Server with graceful Shutdown (ReadTimeout, no WriteTimeout for SSE, IdleTimeout).
+
+### Support additions (to existing packages, WU2/WU3)
+- `stream.StreamClient.Ping` (+ fake + redis impl) for healthz.
+- `worker.Options.Notify` (per-message callback) wired through SupervisorOptions.Notify.
+- `aggregation.Aggregator.Done` (channel closed on Run return).
+- `sse.Hub.Close` (disconnect all clients).
+
+### Files created/changed
+- `internal/httpapi/server.go`, `internal/httpapi/handler_test.go`
+- `cmd/event-pipeline/main.go`
+- Modified: `internal/stream/{client,fake,redis}.go`, `internal/worker/{worker,supervisor}.go`, `internal/aggregation/aggregator.go`, `internal/sse/hub.go`
+
+### Verification (focused)
+- `go vet ./...` — PASS
+- `go test ./...` — PASS (all 7 packages)
+- `go test -race -cover ./...` — PASS; coverage: httpapi 53.7% (SSE handler path + real Redis path under-covered without integration tests)
+- `go build ./...` — PASS
+- Runtime harness (partial): `go run ./cmd/event-pipeline` without REDIS_URL → fails fast with "REDIS_URL is required" (exit 1). Full end-to-end runtime requires Redis → integration tests (WU5/5.1).
+
+### Rollback boundary
+- Remove `internal/httpapi/` and `cmd/` — they are the last wiring layer; removing them leaves the reusable pipeline packages intact.
+
+### Commits
+- `feat(httpapi): add event ingestion, SSE, worker config, health, and metrics routes`
+- `feat(cmd): add event-pipeline composition root with graceful shutdown`
+
 ## Next work unit
-- WU4 — API/wiring/observability: `internal/httpapi` (POST /events, SSE endpoint, worker config GET/PUT, health, metrics routing) + `cmd/event-pipeline/main.go` composition root with graceful shutdown. Runtime harness: `go run ./cmd/event-pipeline` + curl.
+- WU5 — Frontend/embed/deployment: React SPA (Vite+TS+Tailwind, useEventStream hook with Last-Event-ID + dedup, dashboard components), internal/web embed, multi-stage Dockerfile, README with ASCII diagram. Plus integration tests (task 5.1, `//go:build integration` + REDIS_URL).

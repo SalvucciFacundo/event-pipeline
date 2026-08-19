@@ -50,6 +50,8 @@ type StreamClient interface {
 	// Claim reclaims pending messages owned by other (possibly dead)
 	// consumers and assigns them to consumer, returning up to count.
 	Claim(ctx context.Context, consumer string, minIdle time.Duration, count int) ([]Message, error)
+	// Ping reports transport health.
+	Ping(ctx context.Context) error
 	// Close releases the underlying connection.
 	Close() error
 }

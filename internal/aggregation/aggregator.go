@@ -37,6 +37,7 @@ type Snapshot struct {
 type Aggregator struct {
 	input     <-chan stream.Message
 	snapshots chan Snapshot
+	done      chan struct{}
 	clock     func() time.Time
 	tickEvery time.Duration
 	retention time.Duration
@@ -63,6 +64,7 @@ func New(input <-chan stream.Message, opts Options) *Aggregator {
 	return &Aggregator{
 		input:     input,
 		snapshots: make(chan Snapshot, opts.SnapshotBuffer),
+		done:      make(chan struct{}),
 		clock:     opts.Clock,
 		tickEvery: opts.TickInterval,
 		retention: opts.Retention,
@@ -77,9 +79,15 @@ func (a *Aggregator) Snapshots() <-chan Snapshot {
 	return a.snapshots
 }
 
+// Done is closed when Run returns.
+func (a *Aggregator) Done() <-chan struct{} {
+	return a.done
+}
+
 // Run owns the counter state until ctx is canceled, then flushes one final
-// snapshot. Callers must not call Run more than once.
+// snapshot and closes Done. Callers must not call Run more than once.
 func (a *Aggregator) Run(ctx context.Context) {
+	defer close(a.done)
 	ticker := time.NewTicker(a.tickEvery)
 	defer ticker.Stop()
 

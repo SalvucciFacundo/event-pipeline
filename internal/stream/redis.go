@@ -129,6 +129,11 @@ func (c *redisClient) Close() error {
 	return c.rdb.Close()
 }
 
+// Ping reports transport health.
+func (c *redisClient) Ping(ctx context.Context) error {
+	return c.rdb.Ping(ctx).Err()
+}
+
 func fromXMessage(xm redis.XMessage) Message {
 	return Message{
 		ID:         xm.ID,

@@ -20,12 +20,25 @@ const (
 	claimMinIdle = 10 * time.Second
 )
 
+// Options configures a single worker run.
+type Options struct {
+	// Notify is invoked after a message is dispatched and before it is
+	// acked. The pipeline wires it to the SSE hub for live fan-out.
+	Notify func(stream.Message)
+}
+
 // Run executes one worker: it reclaims pending entries owned by dead
 // consumers first (claim-before-read), then loops reading new entries,
-// dispatching immutable copies to out, and acknowledging each entry only
-// after a successful dispatch. It returns when ctx is canceled; entries
-// dispatched-but-unacked at that point stay pending for recovery.
-func Run(ctx context.Context, client stream.StreamClient, name string, out chan<- stream.Message, logger *slog.Logger) {
+// dispatching immutable copies to out, notifying the optional callback,
+// and acknowledging each entry only after a successful dispatch. It
+// returns when ctx is canceled; entries dispatched-but-unacked at that
+// point stay pending for recovery.
+func Run(ctx context.Context, client stream.StreamClient, name string, out chan<- stream.Message, logger *slog.Logger, opts ...Options) {
+	var notify func(stream.Message)
+	if len(opts) > 0 {
+		notify = opts[0].Notify
+	}
+
 	if claimed, err := client.Claim(ctx, name, claimMinIdle, batchSize); err != nil {
 		if ctx.Err() == nil {
 			logger.Warn("pending recovery claim failed", "worker", name, "error", err)
@@ -34,6 +47,9 @@ func Run(ctx context.Context, client stream.StreamClient, name string, out chan<
 		for _, m := range claimed {
 			if !dispatch(ctx, out, m) {
 				return
+			}
+			if notify != nil {
+				notify(m)
 			}
 			if err := client.Ack(ctx, m.ID); err != nil && ctx.Err() == nil {
 				logger.Warn("ack failed during recovery", "id", m.ID, "error", err)
@@ -53,6 +69,9 @@ func Run(ctx context.Context, client stream.StreamClient, name string, out chan<
 		for _, m := range msgs {
 			if !dispatch(ctx, out, m) {
 				return
+			}
+			if notify != nil {
+				notify(m)
 			}
 			if err := client.Ack(ctx, m.ID); err != nil && ctx.Err() == nil {
 				logger.Warn("ack failed", "id", m.ID, "error", err)
